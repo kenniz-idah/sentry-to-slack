@@ -24,9 +24,15 @@ If you're new to Vercel, it's a serverless platform that allows you to run code 
 
 ### What This Code Does:
 
-- **Receives Sentry Events**: The function is triggered when Sentry sends an event (like an error).
-- **Formats the Message**: It parses the event and formats a Slack message using blocks (the fancy Slack message formatting system).
-- **Sends It to Slack**: Using Slack’s API, it posts the error message to a channel of your choice.
+- **Receives Sentry Webhooks**: The function is triggered when Sentry sends a webhook.
+- **Supports Multiple Webhook Types**:
+  - 🔔 **Issue Alerts** (`event_alert`) - When an alert rule is triggered
+  - 📊 **Metric Alerts** (`metric_alert`) - Performance and error rate alerts
+  - 🐛 **Issues** (`issue`) - Issue state changes (created, resolved, assigned, etc.)
+  - ❌ **Errors** (`error`) - Individual error events
+- **Verifies Signatures**: Optional signature verification using Sentry Client Secret for security
+- **Formats the Message**: It parses the webhook and formats a Slack message using blocks (the fancy Slack message formatting system).
+- **Sends It to Slack**: Using Slack's API, it posts the notification to a channel of your choice.
 
 ### Step 3: Slack Setup—Let the Notifications Begin
 
@@ -35,7 +41,10 @@ Here’s how you make sure Slack gets the error alerts:
 1. **Create a Slack App**: Visit [api.slack.com/apps](https://api.slack.com/apps) and create a new app in your workspace.
 2. **Permissions**: Under **OAuth & Permissions**, add the `chat:write` permission.
 3. **Install the App**: Grab the OAuth token after installing the app to your workspace.
-4. **Environment Variables**: Set `SLACK_ACCESS_TOKEN` and `CHANNEL_ID` as environment variables in Vercel.
+4. **Environment Variables**: Set these environment variables in Vercel:
+   - `SLACK_ACCESS_TOKEN` - Your Slack Bot Token (required)
+   - `CHANNEL_ID` - Your Slack Channel ID (required)
+   - `SENTRY_CLIENT_SECRET` - Your Sentry Client Secret (optional, but recommended for security)
 
 ### Step 4: Deploy the Function to Vercel
 
@@ -59,6 +68,7 @@ vercel
 # 5. 添加环境变量
 vercel env add SLACK_ACCESS_TOKEN
 vercel env add CHANNEL_ID
+vercel env add SENTRY_CLIENT_SECRET  # 可选，但推荐
 
 # 6. 部署到生产环境
 vercel --prod
@@ -71,9 +81,10 @@ vercel --prod
 3. 在 Vercel Dashboard 的 Settings → Environment Variables 中添加：
    - `SLACK_ACCESS_TOKEN`
    - `CHANNEL_ID`
+   - `SENTRY_CLIENT_SECRET` (可选，推荐)
 4. 点击 Deploy
 
-**📖 详细的部署指南请查看 [DEPLOYMENT.md](./DEPLOYMENT.md)**
+**📖 详细的部署指南请查看 [QUICKSTART.md](./QUICKSTART.md)**
 
 Now, when an error happens in Sentry, it will trigger your serverless function, and you'll see those notifications in Slack within seconds!
 

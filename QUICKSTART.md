@@ -77,6 +77,9 @@ vercel env add SLACK_ACCESS_TOKEN
 vercel env add CHANNEL_ID
 # 粘贴你的 Channel ID，选择 Production, Preview, Development
 
+vercel env add SENTRY_CLIENT_SECRET
+# 粘贴你的 Sentry Client Secret（可选，用于验证请求），选择 Production, Preview, Development
+
 # 7. 部署到生产环境
 vercel --prod
 ```
@@ -98,12 +101,45 @@ https://sentry-to-slack-abc123.vercel.app/api/edge
 3. 点击 **"Environment Variables"**，添加：
    - Name: `SLACK_ACCESS_TOKEN`, Value: 你的 Slack Bot Token
    - Name: `CHANNEL_ID`, Value: 你的 Channel ID
+   - Name: `SENTRY_CLIENT_SECRET`, Value: 你的 Sentry Client Secret（可选）
 4. 点击 **"Deploy"**
 5. 等待部署完成，复制项目 URL
 
 ---
 
 ## 第三步：配置 Sentry Webhook
+
+### 3.1 创建或使用 Sentry Internal Integration（推荐）
+
+如果你想要签名验证（更安全），建议创建 Internal Integration：
+
+1. 登录 Sentry: https://sentry.io
+2. 进入 **Settings** → **Developer Settings** → **Internal Integrations**
+3. 点击 **"New Internal Integration"**
+4. 填写信息：
+   - **Name**: `Slack Notifier`
+   - **Webhook URL**: `https://sentry-to-slack-abc123.vercel.app/api/edge`（替换为你的 URL）
+   - **Permissions**: 不需要特殊权限
+5. 勾选 **Webhooks**，选择你想接收的事件类型：
+   - ✅ **issue** - Issue 创建、状态变更
+   - ✅ **error** - 新的错误事件
+   - ✅ **event_alert** - Issue Alert 触发
+   - ✅ **metric_alert** - Metric Alert 触发
+6. 点击 **"Save Changes"**
+7. **复制 Client Secret**（只显示一次，请保存好）
+8. 将 Client Secret 添加到 Vercel：
+   ```bash
+   vercel env add SENTRY_CLIENT_SECRET
+   # 粘贴 Client Secret
+   ```
+9. 重新部署：
+   ```bash
+   vercel --prod
+   ```
+
+### 3.2 使用 Legacy Webhooks（简单但不安全）
+
+如果你不需要签名验证：
 
 1. 登录 Sentry: https://sentry.io
 2. 选择你的项目
@@ -113,41 +149,35 @@ https://sentry-to-slack-abc123.vercel.app/api/edge
    ```
    https://sentry-to-slack-abc123.vercel.app/api/edge
    ```
-6. 勾选你想要接收通知的事件（建议选择 **"Issue"**）
+6. 勾选你想要接收通知的事件
 7. 点击 **"Save Changes"**
+
+> **⚠️ 注意**: Legacy Webhooks 不支持签名验证，任何人知道你的 URL 都可以发送请求。推荐使用 Internal Integration。
 
 ---
 
 ## 第四步：测试
 
-### 方法 1: 在 Sentry 中触发测试
+### 方法 1: 在 Sentry 中触发测试（推荐）
 
-1. 在 Sentry 中找到任意一个 Issue
-2. 点击 **"..."** → **"Send Test Notification"**
-3. 检查你的 Slack 频道
+1. 在你的应用中触发一个真实的错误
+2. 或在 Sentry 中手动创建一个 Issue
+3. 检查你的 Slack 频道是否收到通知
 
-### 方法 2: 使用 curl 测试
+### 方法 2: 在 Sentry 中发送测试 Webhook
+
+如果你使用 Internal Integration：
+
+1. 进入 **Settings** → **Developer Settings** → **Internal Integrations**
+2. 点击你创建的集成
+3. 在 **Webhooks** 部分，你可以看到最近的 webhook 请求
+4. 或者在项目中触发一个真实的错误来测试
+
+### 方法 3: 查看 Vercel 日志
 
 ```bash
-curl -X POST https://your-project.vercel.app/api/edge \
-  -H "Content-Type: application/json" \
-  -d '{
-    "project": "test-project",
-    "culprit": "test.js in main",
-    "event": {
-      "level": "error",
-      "logentry": {
-        "formatted": "This is a test error message"
-      },
-      "user": {
-        "email": "test@example.com"
-      },
-      "environment": "production",
-      "metadata": {
-        "title": "Test Error from Sentry"
-      }
-    }
-  }'
+# 查看实时日志，看是否收到 webhook
+vercel logs --follow
 ```
 
 ---
@@ -206,6 +236,7 @@ curl -X POST https://your-project.vercel.app/api/edge \
    ```env
    SLACK_ACCESS_TOKEN=xoxb-your-token
    CHANNEL_ID=C01234567
+   SENTRY_CLIENT_SECRET=your-client-secret-here
    ```
 
 2. **运行本地开发服务器**
