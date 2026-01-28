@@ -61,14 +61,28 @@ function extractProjectFromUrl(url) {
   return match ? match[1] : 'Unknown';
 }
 
+// format JSON for display in Slack (compact format)
+function formatJson(obj) {
+  if (!obj || Object.keys(obj).length === 0) {
+    return '_No data_';
+  }
+  
+  // Convert to compact JSON (no spacing)
+  const jsonStr = JSON.stringify(obj);
+  
+  // Truncate if too long (Slack has limits)
+  if (jsonStr.length > 2000) {
+    return '```' + jsonStr.substring(0, 1997) + '...```';
+  }
+  
+  return '```' + jsonStr + '```';
+}
+
 // handle issue alert webhook (event_alert)
 function formatIssueAlert(data) {
   const event = data.event;
   const level = event.level || 'error';
   const title = event.title || event.message || 'Unknown Issue';
-  const culprit = event.culprit || event.location || 'Unknown';
-  const environment = event.environment || 'Unknown';
-  const user = event.user?.email || event.user?.ip_address || 'Unknown';
   const webUrl = event.web_url || '';
   
   // extract project name from url
@@ -76,45 +90,35 @@ function formatIssueAlert(data) {
 
   const isError = level === 'error' || level === 'fatal';
   
+  // Extract request and context info
+  const request = event.request || {};
+  const contexts = event.contexts || {};
+  
   return [
     {
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": `${isError ? ":red_circle:" : ":warning:"} *${title}*\n_Project: ${projectName}_`
+        "text": `${isError ? ":red_circle:" : ":warning:"} *<${webUrl}|[${projectName}] ${title}>*`
       }
-    },
-    {
-      "type": "section",
-      "fields": [
-        {
-          "type": "mrkdwn",
-          "text": `*Environment:*\n${environment}`
-        },
-        {
-          "type": "mrkdwn",
-          "text": `*Level:*\n${level}`
-        },
-        {
-          "type": "mrkdwn",
-          "text": `*Culprit:*\n\`${culprit}\``
-        },
-        {
-          "type": "mrkdwn",
-          "text": `*User:*\n${user}`
-        }
-      ]
     },
     {
       "type": "divider"
     },
-    ...(webUrl ? [{
+    {
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": `<${webUrl}|🔗 View in Sentry>`
+        "text": `*Request:*\n${formatJson(request)}`
       }
-    }] : [])
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": `*Context:*\n${formatJson(contexts)}`
+      }
+    }
   ];
 }
 
