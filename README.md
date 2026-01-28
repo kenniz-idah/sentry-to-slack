@@ -1,6 +1,8 @@
 # **Say Goodbye to Paid Sentry Alerts: Get Slack Error Notifications for Free!**
 
-Are you tired of paying for Sentry's Slack integration? What if I told you there's a way to send error notifications to Slack *for free*? That's right—no more paying for what you can do with a few simple tricks. By leveraging Sentry's webhook, Vercel's edge functions, and Slack’s free API, you can set up a system that gets real-time error alerts sent straight to Slack without shelling out a dime. Intrigued? Let me show you how.
+Are you tired of paying for Sentry's Slack integration? What if I told you there's a way to send error notifications to Slack *for free*? That's right—no more paying for what you can do with a few simple tricks. By leveraging Sentry's webhook, Vercel's **Serverless Functions**, and Slack's free API, you can set up a system that gets real-time error alerts sent straight to Slack without shelling out a dime. Intrigued? Let me show you how.
+
+> **📢 更新说明 (2026):** 本项目已从 Edge Functions 迁移到 Vercel Serverless Functions，这是目前推荐的部署方式。
 
 ## Why Pay for Something You Can Do for Free?
 
@@ -16,9 +18,9 @@ Sentry provides a webhook legacy integration that lets you send error events to 
 2. **Enable Webhooks**: Under **Legacy Integrations**, add a new webhook. This is where Sentry will send error data.
 3. **Point It to Vercel**: Once we set up our Vercel function, you’ll use that URL here. But first, let’s get the listener set up.
 
-## Step 2: Vercel Edge Function—The Magic Sauce
+## Step 2: Vercel Serverless Function—The Magic Sauce
 
-If you’re new to Vercel, it’s a serverless platform that allows you to run code at the "edge" for free (within certain limits). We’re going to deploy an edge function that will listen for Sentry events, format them, and send them to Slack. This repo contains all the code you need .
+If you're new to Vercel, it's a serverless platform that allows you to run code in the cloud for free (within certain limits). We're going to deploy a serverless function that will listen for Sentry events, format them, and send them to Slack. This repo contains all the code you need.
 
 ### What This Code Does:
 
@@ -37,9 +39,43 @@ Here’s how you make sure Slack gets the error alerts:
 
 ### Step 4: Deploy the Function to Vercel
 
-Push the code to a GitHub repository, connect it to Vercel, and deploy. You’ll need to add your Slack token and channel ID as environment variables. Vercel will handle the rest.
+有两种部署方式：
 
-Now, when an error happens in Sentry, it will trigger your edge function, and you’ll see those notifications in Slack within seconds!
+#### 方式一：使用 Vercel CLI（推荐）
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 安装 Vercel CLI（如果还没有）
+npm install -g vercel
+
+# 3. 登录 Vercel
+vercel login
+
+# 4. 部署到预览环境
+vercel
+
+# 5. 添加环境变量
+vercel env add SLACK_ACCESS_TOKEN
+vercel env add CHANNEL_ID
+
+# 6. 部署到生产环境
+vercel --prod
+```
+
+#### 方式二：使用 GitHub + Vercel Dashboard
+
+1. 将代码推送到 GitHub 仓库
+2. 在 [vercel.com](https://vercel.com) 导入你的项目
+3. 在 Vercel Dashboard 的 Settings → Environment Variables 中添加：
+   - `SLACK_ACCESS_TOKEN`
+   - `CHANNEL_ID`
+4. 点击 Deploy
+
+**📖 详细的部署指南请查看 [DEPLOYMENT.md](./DEPLOYMENT.md)**
+
+Now, when an error happens in Sentry, it will trigger your serverless function, and you'll see those notifications in Slack within seconds!
 
 ## Step 5: Testing the Integration
 

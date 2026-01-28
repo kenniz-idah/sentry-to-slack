@@ -1,16 +1,16 @@
-export const config = {
-  runtime: 'edge',
-}
+// Vercel Serverless Function
+// This function receives Sentry webhook and sends a message to Slack
 
-const sendMessage = async (channel, {level, formatted, environment, email,title, culprit, project}) => {
+const sendMessage = async (channel, {level, formatted, environment, email, title, culprit, project}) => {
   console.info({channel, level, formatted, environment, email, title, culprit, project});
-const isError = level === "error";
+  const isError = level === "error";
+  
   const blocks = [
     {
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": `${isError? ":red_circle:" : ""} *${title}*`
+        "text": `${isError ? ":red_circle:" : ""} *${title}*`
       }
     },
     {
@@ -30,7 +30,6 @@ const isError = level === "error";
         }
       ]
     },
-    
     {
       "type": "section",
       "fields": [
@@ -54,38 +53,79 @@ const isError = level === "error";
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": `*Message:*\n${culprit}`
+        "text": `*Culprit:*\n${culprit}`
       }
     },
     {
       "type": "divider"
     },
   ];
-try{
-  const response = await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Authorization': `Bearer ${process.env.SLACK_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      channel,
-      blocks,
-    }),
-  });
 
-  return response.data;
-}catch(e){
-  console.error(e);
-}
-}
-export default async (req) => {
-  
-  const body = await req.json()
-  console.log(typeof body)
-  const {project,culprit, event:{level, logentry:{formatted}, user:{email}, environment,metadata :{title }}} = body;
+  try {
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': `Bearer ${process.env.SLACK_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        channel,
+        blocks,
+      }),
+    });
 
-  await sendMessage(process.env.CHANNEL_ID, {level, formatted, environment, email,title, culprit, project});
-  
-  return new Response(`Hello from Edge.js! ${body}`)
-}
+    const data = await response.json();
+    return data;
+  } catch (e) {
+    console.error('Error sending message to Slack:', e);
+    throw e;
+  }
+};
+
+// Vercel Serverless Function 处理函数
+module.exports = async (req, res) => {
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const body = req.body;
+    console.log('Received Sentry webhook:', typeof body);
+    
+    // Parse Sentry webhook data
+    const {
+      project,
+      culprit,
+      event: {
+        level,
+        logentry: { formatted },
+        user: { email },
+        environment,
+        metadata: { title }
+      }
+    } = body;
+
+    // Send message to Slack
+    await sendMessage(process.env.CHANNEL_ID, {
+      level,
+      formatted,
+      environment,
+      email,
+      title,
+      culprit,
+      project
+    });
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Notification sent to Slack' 
+    });
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
+  }
+};
