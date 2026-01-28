@@ -1,10 +1,10 @@
 // Vercel Serverless Function
-// 接收 Sentry webhook 并发送通知到 Slack
-// 支持的 webhook 类型: event_alert, metric_alert, issue, error
+// receive Sentry webhook and send notification to Slack
+// supported webhook types: event_alert, metric_alert, issue, error
 
 const crypto = require('crypto');
 
-// 验证 Sentry webhook 签名
+// verify Sentry webhook signature
 function verifySignature(req, secret) {
   if (!secret) {
     console.warn('SENTRY_CLIENT_SECRET not set, skipping signature verification');
@@ -24,7 +24,7 @@ function verifySignature(req, secret) {
   return digest === signature;
 }
 
-// 发送消息到 Slack
+// send message to Slack
 async function sendToSlack(channel, blocks) {
   try {
     const response = await fetch('https://slack.com/api/chat.postMessage', {
@@ -52,7 +52,16 @@ async function sendToSlack(channel, blocks) {
   }
 }
 
-// 处理 Issue Alert webhook (event_alert)
+// get project name from url
+function extractProjectFromUrl(url) {
+  if (!url) return 'Unknown';
+  
+  // URL format: https://sentry.io/api/0/projects/{org}/{project}/events/{event_id}/
+  const match = url.match(/\/projects\/[^\/]+\/([^\/]+)\//);
+  return match ? match[1] : 'Unknown';
+}
+
+// handle issue alert webhook (event_alert)
 function formatIssueAlert(data) {
   const event = data.event;
   const level = event.level || 'error';
@@ -61,7 +70,9 @@ function formatIssueAlert(data) {
   const environment = event.environment || 'Unknown';
   const user = event.user?.email || event.user?.ip_address || 'Unknown';
   const webUrl = event.web_url || '';
-  const triggeredRule = data.triggered_rule || 'Alert';
+  
+  // extract project name from url
+  const projectName = extractProjectFromUrl(event.url);
 
   const isError = level === 'error' || level === 'fatal';
   
@@ -70,7 +81,7 @@ function formatIssueAlert(data) {
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": `${isError ? ":red_circle:" : ":warning:"} *${title}*\n_Alert Rule: ${triggeredRule}_`
+        "text": `${isError ? ":red_circle:" : ":warning:"} *${title}*\n_Project: ${projectName}_`
       }
     },
     {
@@ -86,7 +97,7 @@ function formatIssueAlert(data) {
         },
         {
           "type": "mrkdwn",
-          "text": `*Culprit:*\n${culprit}`
+          "text": `*Culprit:*\n\`${culprit}\``
         },
         {
           "type": "mrkdwn",
@@ -107,7 +118,7 @@ function formatIssueAlert(data) {
   ];
 }
 
-// 处理 Metric Alert webhook (metric_alert)
+// handle metric alert webhook (metric_alert)
 function formatMetricAlert(data, action) {
   const title = data.description_title || 'Metric Alert';
   const description = data.description_text || '';
@@ -145,7 +156,7 @@ function formatMetricAlert(data, action) {
   ];
 }
 
-// 处理 Issue webhook (issue)
+// handle issue webhook (issue)
 function formatIssue(data, action) {
   const issue = data.issue;
   const title = issue.title || 'Unknown Issue';
@@ -210,7 +221,7 @@ function formatIssue(data, action) {
   ];
 }
 
-// 处理 Error webhook (error)
+// handle error webhook (error)
 function formatError(data) {
   const error = data.error;
   const level = error.level || 'error';
@@ -271,15 +282,15 @@ function formatError(data) {
   ];
 }
 
-// Vercel Serverless Function 主处理函数
+// Vercel Serverless Function main handler
 module.exports = async (req, res) => {
-  // 只允许 POST 请求
+  // only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // 验证签名（如果配置了 SENTRY_CLIENT_SECRET）
+    // verify signature (if SENTRY_CLIENT_SECRET is configured)
     const secret = process.env.SENTRY_CLIENT_SECRET;
     if (secret && !verifySignature(req, secret)) {
       console.error('Invalid signature');
@@ -294,7 +305,7 @@ module.exports = async (req, res) => {
     
     let blocks;
     
-    // 根据 webhook 类型格式化消息
+    // format message based on webhook type
     switch (resource) {
       case 'event_alert':
         blocks = formatIssueAlert(body.data);
@@ -320,7 +331,7 @@ module.exports = async (req, res) => {
         });
     }
 
-    // 发送到 Slack
+    // send to Slack
     await sendToSlack(process.env.CHANNEL_ID, blocks);
     
     return res.status(200).json({ 
