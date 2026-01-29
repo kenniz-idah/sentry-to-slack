@@ -99,7 +99,7 @@ function formatIssueAlert(data) {
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": `${isError ? ":red_circle:" : ":warning:"} *<${webUrl}|[${projectName}] ${title}>*`
+        "text": `${isError ? ":red_circle:" : ":warning:"} <${webUrl}|*[${projectName}] ${title}*>`
       }
     },
     {
